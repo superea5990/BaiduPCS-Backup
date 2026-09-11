@@ -1,0 +1,34 @@
+﻿# ============ 敏感信息 ============
+# 登录凭据/网盘路径（绝不可提交）
+百度登录.txt
+*.conf
+backup-task.*.json
+1-backup.backup.xml
+
+# ============ 运行时数据与日志 ============
+*.log
+**/log/
+gui_config.json
+mode_config.json
+gui_debug.log
+
+# ============ 编译产物 ============
+*.exe
+*.syso
+*.manifest
+
+# ============ 不入库的目录 ============
+BaiduPCS-Backup-GUI/
+BaiduPCS-Go-Manager/
+BaiduPCS-Backup-Portable/
+BaiduPCS-Backup-Portable.zip
+_bak/
+_edittest/
+.git-baidupcs-original/
+BaiduPCS-Go备份模式-灵感记录.md
+
+# 备份文件/临时文件
+*.exe~
+*.syso.bak
+*.bak
+*~
