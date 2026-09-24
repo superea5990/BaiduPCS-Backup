@@ -383,7 +383,8 @@ Unregister-ScheduledTask -TaskPath '\Microsoft\BaiduPCS-Go\' -TaskName $name -Co
 # 2) 按原名称重新添加
 $action = New-ScheduledTaskAction -Execute $exe -Argument ('backup run "' + $cfg + '"') -WorkingDirectory $wd
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes $freqMin) -RepetitionDuration (New-TimeSpan -Days 3650)
-$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
+# S4U: 不管用户是否登录都运行, 免密码, 后台会话运行不弹出黑窗口 (需管理员权限注册)
+$principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 240) -MultipleInstances IgnoreNew -StartWhenAvailable -RestartCount 2 -RestartInterval (New-TimeSpan -Minutes 1)
 Register-ScheduledTask -TaskPath '\Microsoft\BaiduPCS-Go\' -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 # 3) 写入描述 (多行列表格式)

@@ -141,10 +141,13 @@ func main() {
 	ui.table.SetName("mainTable")
 	ui.table.SetPersistent(true)
 
-	// 窗口过小时: 不改变布局、不出现横向滚动条, 超出的列直接裁剪遮盖。
+	// 窗口缩放时自适应: 各列总宽放不下就启用横向滚动条(超出的列可左右滑动查看),
+	// 放得下则只留纵向滚动条、末列自动拉伸填满右侧空白(保持原有观感)。
+	// 纵向滚动条始终保留, 任务条数超出可视高度时可上下滑动。
 	// 同时设主表最小高度, 过矮时下方内容溢出被窗口裁剪, 而不是把各段压扁。
 	ui.table.SetScrollbarOrientation(walk.Vertical)
 	ui.table.SetMinMaxSize(walk.Size{Width: 0, Height: 150}, walk.Size{Width: 0, Height: 0})
+	ui.table.SizeChanged().Attach(func() { syncTableScrollbar(ui.table) })
 
 	// ============ 中部: 功能区 (分隔条内, 合并为单个面板) ============
 	mid, _ := walk.NewComposite(vs)
@@ -255,6 +258,36 @@ func main() {
 	ui.startAutoRefresh()
 	mw.Show()
 	mw.Run()
+}
+
+// syncTableScrollbar 按主表当前可视宽度决定横向滚动条策略:
+//   - 各列总宽 <= 可视宽度: 只保留纵向滚动条, 末列自动拉伸填满右侧空白(原有观感不变)
+//   - 各列总宽 >  可视宽度: 同时启用横向滚动条, 超出的列可左右滑动查看, 不再被裁剪
+//
+// walk 的 SetScrollbarOrientation 会控制是否剥离 WS_HSCROLL: 只给 Vertical 时
+// 横向滚动条被摘掉、末列被挤压填补空白, 窗口缩小时列就看不见了。这里按实际
+// 宽度动态切换, 切换后调用 StretchLastColumn 重算末列宽度, 让滚动条立即生效。
+func syncTableScrollbar(tv *walk.TableView) {
+	if tv == nil {
+		return
+	}
+	cols := tv.Columns()
+	total := 0
+	for i := 0; i < cols.Len(); i++ {
+		total += tv.IntFrom96DPI(cols.At(i).Width())
+	}
+	avail := tv.ClientBoundsPixels().Width
+
+	// 注意: walk.Horizontal/Vertical 是无类型常量, 必须显式声明为 walk.Orientation
+	var want walk.Orientation = walk.Vertical
+	if avail > 0 && total > avail {
+		want = walk.Horizontal | walk.Vertical
+	}
+	if tv.ScrollbarOrientation() == want {
+		return
+	}
+	tv.SetScrollbarOrientation(want)
+	_ = tv.StretchLastColumn()
 }
 
 // mkBtn 创建按钮
