@@ -32,3 +32,11 @@ BaiduPCS-Go备份模式-灵感记录.md
 *.syso.bak
 *.bak
 *~
+
+# ============ 构建必需资源（必须入库，勿删）============
+# lxn/walk 图形界面依赖 Windows Common Controls v6 manifest。
+# 缺少时 go build 无任何报错，但双击运行时 walk.NewMainWindow 失败
+# （TTM_ADDTOOL failed）并静默退出，表现为"双击无反应"。
+# 以下两个文件被上面的 *.manifest / *.syso 规则命中，故需显式放行。
+!BaiduPCS-Backup-GUI-Lite/app.manifest
+!BaiduPCS-Backup-GUI-Lite/rsrc_windows_amd64.syso
