@@ -1,0 +1,34 @@
+classDiagram
+    class importItem {
+        +string FileName
+        +string Name
+        +string ConfigPath
+        +string LocalDir
+        +string RemoteDir
+        +bool Exists
+        +string ParseErr
+    }
+    class importFreqPreset {
+        +string text
+        +int minutes
+    }
+    class importTableModel {
+        -[]*importItem items
+        -map[int]bool checked
+        +RowCount() int
+        +Value(row, col int) interface{}
+        +Checked(index int) bool
+        +SetChecked(index int, checked bool) error
+    }
+    class importDialog {
+        -*walk.Dialog
+        -[]*importItem items
+        -*importTableModel model
+        -*walk.TableView table
+        -*walk.ComboBox freqCb
+        -bool accepted
+        -int freqMin
+        +run() []*importItem, int, bool
+    }
+    importDialog --> importTableModel : 持有
+    importTableModel --> importItem : 持有

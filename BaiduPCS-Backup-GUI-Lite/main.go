@@ -27,6 +27,8 @@ type mainUI struct {
 	refreshing bool
 	runMu     sync.Mutex   // 保护 running
 	running   map[string]bool // 正在手动备份中的任务名, 防止同一任务重复执行
+	importMu  sync.Mutex   // 保护 importing, 防止导入流程快速双击重入
+	importing bool
 }
 
 // taskTableModel 主表数据模型
@@ -175,6 +177,7 @@ func main() {
 
 	btnStartSched := mkBtn(row2, "启动任务", 90)
 	btnStopSched := mkBtn(row2, "停止任务", 90)
+	btnImport := mkBtn(row2, "导入任务", 90)
 	btnExport := mkBtn(row2, "导出计划任务", 110)
 	btnOpen := mkBtn(row2, "打开计划任务", 110)
 	_, _ = walk.NewHSpacer(row2)
@@ -208,6 +211,7 @@ func main() {
 	btnSettings.Clicked().Attach(func() { showSettingsDialog(ui) })
 	btnStartSched.Clicked().Attach(func() { ui.taskOp("启动任务", RunTask) })
 	btnStopSched.Clicked().Attach(func() { ui.taskOp("停止任务", StopTask) })
+	btnImport.Clicked().Attach(ui.importTasks)
 	btnExport.Clicked().Attach(ui.exportTask)
 	btnOpen.Clicked().Attach(ui.openScheduler)
 	btnRefresh.Clicked().Attach(ui.refresh)
@@ -596,6 +600,95 @@ func (ui *mainUI) openScheduler() {
 		}
 		ui.Synchronize(func() {
 			ui.logf("[打开计划任务] 请逐级查看当前任务：任务计划程序 (本地)>任务计划程序库>Microsoft>BaiduPCS-Go")
+		})
+	}()
+}
+
+// ---- 导入 ----
+
+// importTasks 导入流程: 扫描配置 -> 确认汇总 -> 列表勾选+选频率 -> 逐个注册。
+// 重活(扫描/注册)放在 goroutine, 所有 UI 操作(弹窗/日志/刷新)通过 Synchronize 回 UI 线程。
+func (ui *mainUI) importTasks() {
+	// 防重入: 导入流程进行中时忽略再次点击, 避免并发弹出多个导入弹窗/重复注册
+	ui.importMu.Lock()
+	if ui.importing {
+		ui.importMu.Unlock()
+		ui.logf("[导入任务] 导入流程进行中，请稍候")
+		return
+	}
+	ui.importing = true
+	ui.importMu.Unlock()
+
+	go func() {
+		defer func() {
+			ui.importMu.Lock()
+			ui.importing = false
+			ui.importMu.Unlock()
+		}()
+		items, err := scanImportCandidates()
+		if err != nil {
+			ui.Synchronize(func() { ui.logf("[导入任务] 扫描配置文件失败: %v", err) })
+			return
+		}
+		if len(items) == 0 {
+			ui.Synchronize(func() { ui.logf("[导入任务] 未发现可导入的配置文件 (backup-task.*.json)") })
+			return
+		}
+
+		// 回 UI 线程弹确认框与导入弹窗 (阻塞在 UI 线程, 结果通过通道传回本 goroutine)
+		type importResult struct {
+			checked []*importItem
+			freqMin int
+			ok      bool
+		}
+		ch := make(chan importResult, 1)
+		ui.Synchronize(func() {
+			r := walk.MsgBox(ui, "导入任务", fmt.Sprintf("发现 %d 个配置文件，是否导入？", len(items)),
+				walk.MsgBoxIconQuestion|walk.MsgBoxYesNo)
+			if r != walk.DlgCmdYes {
+				ch <- importResult{}
+				return
+			}
+			checked, freqMin, ok := showImportDialog(ui, items)
+			ch <- importResult{checked: checked, freqMin: freqMin, ok: ok}
+		})
+		res := <-ch
+		if !res.ok {
+			return // 用户取消
+		}
+
+		core := ResolveCoreExe()
+		if core == "" {
+			ui.Synchronize(func() { ui.logf("[导入任务] 未找到 BaiduPCS 核心程序") })
+			return
+		}
+
+		var succ, skip, fail int
+		for _, it := range res.checked {
+			it := it // 绑定循环变量, 供下方 Synchronize 闭包安全捕获
+			if it.Exists {
+				skip++
+				ui.Synchronize(func() { ui.logf("[导入任务] %s 已存在，跳过", it.Name) })
+				continue
+			}
+			if it.ParseErr != "" {
+				fail++
+				ui.Synchronize(func() { ui.logf("[导入任务] %s 无法导入: %s", it.FileName, it.ParseErr) })
+				continue
+			}
+			if err := registerImportItem(it, res.freqMin, core); err != nil {
+				fail++
+				ui.Synchronize(func() { ui.logf("[导入任务] %s 注册失败: %v", it.Name, err) })
+				continue
+			}
+			succ++
+			ui.Synchronize(func() { ui.logf("[导入任务] %s 导入成功: %s -> %s", it.Name, it.LocalDir, it.RemoteDir) })
+		}
+
+		ui.Synchronize(func() {
+			ui.logf("[导入任务] 完成: 成功 %d, 跳过 %d, 失败 %d", succ, skip, fail)
+			ui.logf("[导入任务] 提示: 若网盘未登录，导入的任务执行时将失败")
+			ui.refresh()
 		})
 	}()
 }
