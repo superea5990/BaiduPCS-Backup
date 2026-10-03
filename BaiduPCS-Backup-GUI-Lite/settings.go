@@ -182,8 +182,12 @@ func (sd *settingsDialog) setupHelpPage(page *walk.TabPage) {
 	tip.SetText("账号登录支持粘贴百度 Cookies 或 BDUSS。\n若不清楚如何获取，请参考下方教程。")
 	grid.SetRange(tip, walk.Rectangle{X: 0, Y: 0, Width: 2, Height: 1})
 
+	// Cookies 教程: 紧接说明文字, 用户读完提示即可直接点开
+	_, cookCell := helpGridRow(page, grid, "Cookies 教程：", 1)
+	newHelpLink(cookCell, cookUrl)
+
 	// 核心版本: 异步查询核心程序, 未找到时给出提示
-	_, verCell := helpGridRow(page, grid, "核心版本：", 1)
+	_, verCell := helpGridRow(page, grid, "核心版本：", 2)
 	sd.helpCoreVer, _ = walk.NewLabel(verCell)
 	sd.helpCoreVer.SetText("检测中…")
 	go func() {
@@ -202,12 +206,8 @@ func (sd *settingsDialog) setupHelpPage(page *walk.TabPage) {
 	}()
 
 	// 新版发布地址
-	_, relCell := helpGridRow(page, grid, "新版发布：", 2)
+	_, relCell := helpGridRow(page, grid, "新版发布：", 3)
 	newHelpLink(relCell, releaseUrl)
-
-	// Cookies 教程
-	_, cookCell := helpGridRow(page, grid, "Cookies 教程：", 3)
-	newHelpLink(cookCell, cookUrl)
 
 	// 底部占位: 吸收多余高度, 避免上方各行被垂直拉伸
 	sp, _ := walk.NewLabel(page)
