@@ -24,21 +24,6 @@ func TestVerifyLogin(t *testing.T) {
 	}
 }
 
-func TestExportTaskXML(t *testing.T) {
-	rows, err := ListTasks()
-	if err != nil || len(rows) == 0 {
-		t.Skip("无任务可导出")
-	}
-	xml, err := ExportTaskXML(rows[0].Name)
-	if err != nil {
-		t.Fatalf("ExportTaskXML: %v", err)
-	}
-	fmt.Printf("XML 长度=%d 开头=%s\n", len(xml), xml[:min(40, len(xml))])
-	if !strings.Contains(xml, "<Task") {
-		t.Errorf("导出内容异常: %q", xml[:min(80, len(xml))])
-	}
-}
-
 func TestAddDeleteCycle(t *testing.T) {
 	// 用一个临时配置 + 临时任务名验证 添加(注册) -> 删除 全链路
 	tmpCfg := "backup-task.__test__.json"

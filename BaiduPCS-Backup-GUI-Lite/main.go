@@ -178,7 +178,6 @@ func main() {
 	btnStartSched := mkBtn(row2, "启动任务", 90)
 	btnStopSched := mkBtn(row2, "停止任务", 90)
 	btnImport := mkBtn(row2, "导入任务", 90)
-	btnExport := mkBtn(row2, "导出计划任务", 110)
 	btnOpen := mkBtn(row2, "打开计划任务", 110)
 	_, _ = walk.NewHSpacer(row2)
 	btnRefresh := mkBtn(row2, "刷新", 70)
@@ -212,7 +211,6 @@ func main() {
 	btnStartSched.Clicked().Attach(func() { ui.taskOp("启动任务", RunTask) })
 	btnStopSched.Clicked().Attach(func() { ui.taskOp("停止任务", StopTask) })
 	btnImport.Clicked().Attach(ui.importTasks)
-	btnExport.Clicked().Attach(ui.exportTask)
 	btnOpen.Clicked().Attach(ui.openScheduler)
 	btnRefresh.Clicked().Attach(ui.refresh)
 	btnClearLog.Clicked().Attach(ui.clearLog)
@@ -564,32 +562,7 @@ func (ui *mainUI) delTask() {
 	}()
 }
 
-// ---- 导出 / 查看 / 打开计划任务 ----
-
-func (ui *mainUI) exportTask() {
-	t := ui.selected()
-	if t == nil {
-		ui.logf("[导出计划任务] 请先选择一个任务")
-		return
-	}
-	go func() {
-		xml, err := ExportTaskXML(t.Name)
-		if err != nil {
-			ui.Synchronize(func() { ui.logf("[导出计划任务] 失败: %v", err) })
-			return
-		}
-		exe, _ := os.Executable()
-		dir := filepath.Join(filepath.Dir(exe), "export")
-		os.MkdirAll(dir, 0755)
-		fp := filepath.Join(dir, t.Name+".xml")
-		if err := os.WriteFile(fp, []byte(xml), 0644); err != nil {
-			ui.Synchronize(func() { ui.logf("[导出计划任务] 写文件失败: %v", err) })
-			return
-		}
-		exec.Command("explorer.exe", dir).Start()
-		ui.Synchronize(func() { ui.logf("[导出计划任务] 已导出到 %s", fp) })
-	}()
-}
+// ---- 查看 / 打开计划任务 ----
 
 // openScheduler 打开任务计划程序 (简化: 跨电脑树结构不可靠, 不再自动定位文件夹)
 func (ui *mainUI) openScheduler() {

@@ -99,7 +99,16 @@ type settingsDialog struct {
 	// 基础设置
 	normalConc, normalBand   *walk.LineEdit
 	stealthConc, stealthBand *walk.LineEdit
+
+	// 帮助
+	helpCoreVer *walk.Label // 核心程序版本号, 打开设置时异步查询后填充
 }
+
+// 帮助页使用的外部地址
+const (
+	releaseUrl = "https://github.com/superea5990/BaiduPCS-Backup/releases"
+	cookUrl    = "https://jingyan.baidu.com/article/5553fa829a6a9e65a23934b0.html"
+)
 
 // showSettingsDialog 打开设置对话框 (账号管理/基础设置/帮助)
 func showSettingsDialog(ui *mainUI) {
@@ -159,25 +168,81 @@ func (sd *settingsDialog) setup() {
 	sd.acctRefresh()
 }
 
-// setupHelpPage 帮助页: 账号登录说明 + 获取百度 Cookies 教程超链接
+// setupHelpPage 帮助页: 说明文字 + 核心版本 + 新版发布地址 + Cookies 教程
+// 采用两列网格(标签列 + 内容列), 各行左侧标签同宽, 内容左对齐整齐排列
 func (sd *settingsDialog) setupHelpPage(page *walk.TabPage) {
-	pv := walk.NewVBoxLayout()
-	pv.SetSpacing(8)
-	page.SetLayout(pv)
+	grid := walk.NewGridLayout()
+	grid.SetSpacing(8)
+	page.SetLayout(grid)
+	grid.SetColumnStretchFactor(0, 0) // 标签列: 固定宽度, 不参与拉伸
+	grid.SetColumnStretchFactor(1, 1) // 内容列: 占满剩余宽度
 
-	lbl, _ := walk.NewLabel(page)
-	lbl.SetText("账号登录支持粘贴百度 Cookies 或 BDUSS。\n若不清楚如何获取，请参考以下教程：")
+	// 说明: 跨两列
+	tip, _ := walk.NewLabel(page)
+	tip.SetText("账号登录支持粘贴百度 Cookies 或 BDUSS。\n若不清楚如何获取，请参考下方教程。")
+	grid.SetRange(tip, walk.Rectangle{X: 0, Y: 0, Width: 2, Height: 1})
 
-	ll, _ := walk.NewLinkLabel(page)
-	const cookUrl = "https://jingyan.baidu.com/article/5553fa829a6a9e65a23934b0.html"
-	ll.SetText(`<a href="` + cookUrl + `">获取百度 Cookies 教程</a>`)
+	// 核心版本: 异步查询核心程序, 未找到时给出提示
+	_, verCell := helpGridRow(page, grid, "核心版本：", 1)
+	sd.helpCoreVer, _ = walk.NewLabel(verCell)
+	sd.helpCoreVer.SetText("检测中…")
+	go func() {
+		core := ResolveCoreExe()
+		ver := ""
+		if core != "" {
+			ver = CoreVersion(core)
+		}
+		sd.ui.Synchronize(func() {
+			if ver == "" {
+				sd.helpCoreVer.SetText("未检测到核心程序")
+			} else {
+				sd.helpCoreVer.SetText("BaiduPCS-Go " + ver)
+			}
+		})
+	}()
+
+	// 新版发布地址
+	_, relCell := helpGridRow(page, grid, "新版发布：", 2)
+	newHelpLink(relCell, releaseUrl)
+
+	// Cookies 教程
+	_, cookCell := helpGridRow(page, grid, "Cookies 教程：", 3)
+	newHelpLink(cookCell, cookUrl)
+
+	// 底部占位: 吸收多余高度, 避免上方各行被垂直拉伸
+	sp, _ := walk.NewLabel(page)
+	grid.SetRange(sp, walk.Rectangle{X: 0, Y: 4, Width: 2, Height: 1})
+	grid.SetRowStretchFactor(4, 1)
+}
+
+// helpGridRow 在 grid 指定行创建"标签列 + 内容列"两列, 返回内容单元格容器
+// 标签列固定宽度, 保证多行之间的内容列左边缘对齐
+func helpGridRow(parent walk.Container, grid *walk.GridLayout, label string, row int) (*walk.Label, *walk.Composite) {
+	lbl, _ := walk.NewLabel(parent)
+	lbl.SetText(label)
+	lbl.SetMinMaxSize(walk.Size{Width: 96}, walk.Size{Width: 0, Height: 0})
+	grid.SetRange(lbl, walk.Rectangle{X: 0, Y: row, Width: 1, Height: 1})
+
+	cell, _ := walk.NewComposite(parent)
+	hb := walk.NewHBoxLayout()
+	hb.SetSpacing(4)
+	cell.SetLayout(hb)
+	grid.SetRange(cell, walk.Rectangle{X: 1, Y: row, Width: 1, Height: 1})
+	return lbl, cell
+}
+
+// newHelpLink 创建一个以完整地址作为显示文字的超链接 (点击用默认浏览器打开)
+func newHelpLink(parent walk.Container, url string) *walk.LinkLabel {
+	ll, _ := walk.NewLinkLabel(parent)
+	ll.SetText(`<a href="` + url + `">` + url + `</a>`)
 	ll.LinkActivated().Attach(func(link *walk.LinkLabelLink) {
 		u := link.URL()
 		if u == "" {
-			u = cookUrl
+			u = url
 		}
 		exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Run()
 	})
+	return ll
 }
 
 // ---- 账号管理页 ----

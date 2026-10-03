@@ -518,6 +518,25 @@ func VerifyLogin(coreExe string) (string, error) {
 	return strings.TrimSpace(fmt.Sprintf("用户名: %s, 总空间: %s, 已用空间: %s, 比率: %s", user, total, used, ratio)), nil
 }
 
+// CoreVersion 查询核心程序版本号, 失败返回空串
+// 核心 `--version` 输出形如 "BaiduPCS-Go version v4.0.2-dev", 这里只取 version 之后的版本串
+// (动态读取而非写死常量: 核心升级后帮助页显示的版本号自动跟随, 不会过时)
+func CoreVersion(coreExe string) string {
+	out, err := runCore(coreExe, "--version")
+	if err != nil {
+		return ""
+	}
+	for _, ln := range strings.Split(string(out), "\n") {
+		ln = strings.TrimSpace(ln)
+		if i := strings.Index(ln, "version"); i >= 0 {
+			if v := strings.TrimSpace(ln[i+len("version"):]); v != "" {
+				return v
+			}
+		}
+	}
+	return ""
+}
+
 // extractKV 从输出中取 "key" 之后到逗号/换行的字段值
 func extractKV(b []byte, key string) string {
 	s := string(b)
@@ -567,17 +586,6 @@ func TaskExists(name string) bool {
 		}
 	}
 	return false
-}
-
-// ExportTaskXML 导出计划任务XML文本
-func ExportTaskXML(name string) (string, error) {
-	script := fmt.Sprintf(`[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-Export-ScheduledTask -TaskPath '\Microsoft\BaiduPCS-Go\' -TaskName '%s'`, psEsc(name))
-	out, err := runPS(script)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
 }
 
 // ---- 新任务配置 ----

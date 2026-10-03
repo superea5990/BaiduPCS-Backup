@@ -20,8 +20,10 @@ export PATH="$PATH:/c/Program Files/Go/bin"
 MIN_SIZE=7000000
 
 # ------------------------------------------------------------
-# check_gui_exe <exe 路径>
+# check_gui_exe <exe 路径> [体积下限] [产物称呼]
 #   编译后自检：确认产物是「GUI 子系统 + 已嵌资源」的正品。
+#   $2 体积下限缺省取 $MIN_SIZE（再缺省 7000000）；$3 仅用于提示文案区分
+#   GUI / 核心（核心门槛更高，用 check_gui_exe "$out" 10000000 核心 调用）。
 #
 #   【为什么非要读 PE 头 —— 别删】
 #     go build 漏了 -ldflags "-H windowsgui" 时，产物会被链接成
