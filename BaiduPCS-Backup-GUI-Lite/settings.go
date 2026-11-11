@@ -240,7 +240,7 @@ func newHelpLink(parent walk.Container, url string) *walk.LinkLabel {
 		if u == "" {
 			u = url
 		}
-		exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Run()
+		exec.Command(systemExe("rundll32.exe", `System32\rundll32.exe`), "url.dll,FileProtocolHandler", u).Run()
 	})
 	return ll
 }

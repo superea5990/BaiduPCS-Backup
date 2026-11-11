@@ -32,7 +32,10 @@ const psTimeout = 30 * time.Second
 func runPS(script string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), psTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
+	// powershell.exe 不在 System32 根目录, 而在 WindowsPowerShell\v1.0 下;
+	// 用绝对路径定位, 避免 PATH 含未展开 %SystemRoot% 时 exec.LookPath 失败。
+	psExe := systemExe("powershell.exe", `System32\WindowsPowerShell\v1.0\powershell.exe`)
+	cmd := exec.CommandContext(ctx, psExe, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", script)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: 0x08000000} // CREATE_NO_WINDOW
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr

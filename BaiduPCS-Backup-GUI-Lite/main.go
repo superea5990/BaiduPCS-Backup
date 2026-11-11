@@ -566,9 +566,16 @@ func (ui *mainUI) delTask() {
 
 // openScheduler 打开任务计划程序 (简化: 跨电脑树结构不可靠, 不再自动定位文件夹)
 func (ui *mainUI) openScheduler() {
+	// 用绝对路径定位 mmc.exe: 进程 PATH 可能含未展开的 %SystemRoot% 字面量,
+	// 此时 exec.LookPath 会误报 "executable file not found"。
+	mmc := systemExe("mmc.exe", `System32\mmc.exe`)
 	go func() {
-		if err := exec.Command("mmc.exe", "taskschd.msc").Start(); err != nil {
-			ui.Synchronize(func() { ui.logf("[打开计划任务] 打开任务计划程序失败: %v", err) })
+		if err := exec.Command(mmc, "taskschd.msc").Start(); err != nil {
+			// 失败时给出可操作的手动路径, 避免用户只看到一句 Go 英文错误
+			ui.Synchronize(func() {
+				ui.logf("[打开计划任务] 打开任务计划程序失败: %v", err)
+				ui.logf("[打开计划任务] 可手动打开：Win+R 输入 taskschd.msc，或直接运行 %s taskschd.msc", mmc)
+			})
 			return
 		}
 		ui.Synchronize(func() {
